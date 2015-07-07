@@ -1,0 +1,267 @@
+#!/usr/bin/python
+''' this is a crawler, which crawls through all the files based on the given structure input to find it's defination code and writes the defination into dot.c & testing.c '''
+
+#---- a bit redundency is there between the first comparison and the rest of the comarisons 
+#--- have to modify for a bit so that the same code can work for even functions also, mean while I will try to impove the code properly
+
+# This script has written by Dharavath souresh
+# Tuesday 07 July 2015 05:54:47 PM IST
+
+
+import os
+import commands
+file_path="/home/suresh/Documents/scripts/"
+cnt=0
+g_flag=0
+g_struct=[]
+search_list=[]
+#struct_string=""
+
+def filter_files():
+	#global struct_string
+	check="#--------------------"
+	fp1 = open(file_path+"dot.c","r")
+
+	fp2 = open(file_path+"f_dot.c","a")
+	for line in fp1:
+		if check not in line:
+			#struct_string+=line
+			fp2.write(line)
+	
+	fp1.close()
+	fp2.close()
+	'''
+	else:
+		for line in fp1:
+			if check not in line:
+				struct_string+=line
+	#print "printing struct_string : ",struct_string
+	fp1.close()
+	'''
+
+def crawle(var):
+	global struct_string
+	if g_flag == 1 and "task_struct" in var:
+		return 0                         								  #----------------> to avoid the double search of 'task_struct'
+	dotc=open(file_path+"dot.c","w")
+	output=commands.getoutput(var)
+	
+	
+	fp=open(file_path+"output","w")
+	fp.write(output)
+	fp.close()
+
+	list_output=[]
+	list_output = output.split("\n")
+
+	
+	file_name,file_list="",[]
+	
+	for line in list_output:
+	
+		line = list(line.split(":"))
+		file_name=str(line[0])
+	
+		if file_name not in file_list:
+			file_list.append(file_name)
+
+	
+	stack=[]
+	flag=0
+	open_brace=0
+	close_brace=0
+	for name in file_list:
+		fp=open(name,"r")
+		dotc.write("#--------------------data from the file : "+str(name)+"-----------------\n")
+		for line in fp:
+			line = line.strip()
+			if key_word in line:
+				
+				temp ="struct "+var[8:]+" {"
+				
+			
+				if line == temp:
+					
+					dotc.write("//------data from the file : "+str(name)+"------")
+					dotc.write(line+"\n")
+					stack.append("{")
+					open_brace+=1
+				
+					for line in fp:
+					
+						if "{" in line:
+							open_brace+=1
+							dotc.write(line) 
+							stack.append("{")
+						elif "}" in line:
+							close_brace+=1
+							dotc.write(line) 
+							stack.pop()
+						elif not stack:
+							fp.close()
+							flag=1
+							
+							break
+						else:
+							dotc.write(line) 											#---------- redundency is here
+							
+			if flag == 1:
+				
+				break
+		
+	
+	if open_brace==close_brace:
+		
+		dotc.close()
+	else:
+		print "mismatch in stack brace matching"
+	
+	#struct_string="\n---------------------------->"+var[8:]+"<------------------------------------\n"+struct_string
+	filter_files()
+
+
+if g_flag == 0:
+	
+	key_word="task_struct"
+
+	path="/home/suresh/linux-3.16.0/include/linux"
+#	path="/home/suresh/first/linux-3.16.0/include/linux"
+
+	os.chdir(path)
+	var="grep -r "+key_word
+	crawle(var)
+	
+	g_flag=1
+		
+if g_flag == 1:
+	
+	g_fp = open(file_path+"dot.c","r")
+	for line in g_fp:
+		
+		line = line.strip()													# to remove whitespaces
+	
+		if ( "{" not in line ) and ( "struct" in line ):
+			
+			t_list=line.split(" ")
+			
+			if (t_list[0] == "struct")  and (t_list[1] not in search_list):
+				search_list.append(str(t_list[1]))             				 #search_list.append(str(t_list[0])+" "+str(t_list[1])+" {")
+			elif (t_list[0] == "const") and (t_list[1] == "struct")  and (t_list[2] not in search_list):
+				search_list.append(str(t_list[2]))            				 #search_list.append(str(t_list[0])+str(t_list[1])+str(t_list[2])+" {")
+	#print search_list,"  ",len(search_list)
+	#cou=0	
+	#for struct in search_list:
+	#	cou+=1
+		
+	#	try:
+	#		print "printing structure",struct
+	#		var = "grep -r "+struct
+	#		crawle(var)
+	#	except:
+	#		print cnt," has trapped "
+	#		cnt+=1
+
+#final = open(file_path+"final.c","w")
+
+#final.write(struct_string)
+#final.close()
+		
+#path1="/home/suresh/linux-3.16.0/include/linux"
+#os.chdir(path1)
+
+example = open("/home/suresh/Documents/scripts/testing.c","w")
+struct_list=search_list
+#print len(struct_list)
+non,exec_list=[],[]
+stack_count,count=0,0
+
+def compute(output):														#responible for extaction fo the code 
+	global count,stack_count
+	if output:
+		#print item," -----> ",output,"  ",type(output),"\n\n"
+		output = output.split(":")[0]
+		fp =  open(output,"r")
+		for line in fp:
+			line = line.strip()
+			match = "struct "+item+" {"
+			'''if match == "struct mem_cgroup {":
+					print line
+			'''
+			if match == line:
+				#print  match
+				count+=1
+				exec_list.append(item)
+				example.write("\n\n"+item+" ::-->:: "+output+"\n\n")
+				example.write(line+"\n")
+				'''if match == "struct mem_cgroup {":
+					print line
+				'''
+				stack_count+=1
+				for line in fp:
+					if ( "{" in line ) and ( line[0] != '/' ) and ( line[1] != '*' ) and ( line[0] != '*' ):
+						stack_count+=1
+					elif ( "}" in line ) and ( line[0] != '/' ) and ( line[1] != '*' ) and ( line[0] != '*' ):
+						stack_count-=1
+					example.write(line)
+					'''if match == "struct mem_cgroup {":
+						print line,"  ",stack_count
+					'''
+					if stack_count == 0:
+						break
+
+		fp.close()
+				
+	if not output:
+		non.append(item)
+
+def crawl(item):															#searches for the file and filters by length
+	
+	if '\t' in item:
+		item=item.split()[0]
+		#print "splitted item is  : ",item
+	cmd="grep -r '"+item+" {'"
+	#print cmd
+	output = commands.getoutput(cmd)
+	flag_list = output.split("\n")
+	if len(flag_list) > 1:
+		print "greater      ",item,"    ",len(flag_list)
+		for i in flag_list:
+			if "arch" in i:												# don't have to get the all the arch file code exce "/arch/x86"
+				if "arch/x86/" in i:
+					compute(i)
+			else: 
+				compute(i)
+	else:
+		compute(output)
+		
+
+#print non
+
+for item in struct_list:
+	crawl(item)
+os.chdir("/home/suresh/linux-3.16.0/")
+#os.chdir("/home/suresh/first/linux-3.16.0/")
+
+print non
+
+for item in non:
+	try:
+		crawl(item)
+	except:
+		print "caught an exception"
+example.close()
+
+print "file 'testing.c' has written successfully"
+
+			
+
+#commands.getoutput("python all_struct.py")
+		
+# final output of this file will going to store into "f_dot.c" file 			
+			
+
+
+					
+#------------------------------ filter ring starts from here ------------------------				
+
+
